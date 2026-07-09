@@ -1,21 +1,82 @@
+import streamlit as st
 from transformers import pipeline
 
-sentiment_analyzer = pipeline('sentiment-analysis')
+st.set_page_config(
+    page_title="Sentiment Analysis GenAI Bot",
+    page_icon="🤖",
+    layout="wide"
+)
+
+st.title("🤖 Sentiment Analysis GenAI Bot")
+st.write("Compare sentiment predictions from multiple Hugging Face models.")
+
+# Cache models so they load only once
+@st.cache_resource
+def load_models():
+
+    models = {
+        "DistilBERT":
+            pipeline(
+                "sentiment-analysis",
+                model="distilbert-base-uncased-finetuned-sst-2-english"
+            ),
+
+        "RoBERTa":
+            pipeline(
+                "sentiment-analysis",
+                model="cardiffnlp/twitter-roberta-base-sentiment-latest"
+            ),
+
+        "SieBERT":
+            pipeline(
+                "sentiment-analysis",
+                model="siebert/sentiment-roberta-large-english"
+            ),
+
+        "BERT Multilingual":
+            pipeline(
+                "sentiment-analysis",
+                model="nlptown/bert-base-multilingual-uncased-sentiment"
+            )
+    }
+
+    return models
 
 
-def analyze_sentiment(text: str) -> None:
-    if not text.strip():
-        print("Please enter some text.")
-        return
+models = load_models()
 
-    results = sentiment_analyzer(text)
-    label = results[0]['label']
-    score = results[0]['score']
+review = st.text_area(
+    "Enter Review",
+    placeholder="Example: The product quality is amazing!",
+    height=180
+)
 
-    print(f"Input Text: '{text}'")
-    print(f"Sentiment: {label}")
-    print(f"Confidence Score: {score:.4f}")
+selected_models = st.multiselect(
+    "Select Models",
+    list(models.keys()),
+    default=list(models.keys())
+)
 
+if st.button("Analyze Sentiment"):
 
-user_input = input("Enter text for sentiment analysis: ")
-analyze_sentiment(user_input)
+    if review.strip() == "":
+        st.warning("Please enter a review.")
+        st.stop()
+
+    for model_name in selected_models:
+
+        st.subheader(model_name)
+
+        try:
+
+            result = models[model_name](review)
+
+            label = result[0]["label"]
+            score = result[0]["score"]
+
+            st.success(f"Sentiment: {label}")
+            st.info(f"Confidence: {score:.2%}")
+
+        except Exception as e:
+
+            st.error(f"Error: {e}")
