@@ -8,87 +8,75 @@ st.set_page_config(
 )
 
 st.title("🤖 Sentiment Analysis GenAI Bot")
-st.write("Compare sentiment using multiple Hugging Face models.")
+st.write("Compare sentiment predictions from multiple Hugging Face models.")
 
-# -------------------------
-# Load Models (cached)
-# -------------------------
+# Cache models so they load only once
 @st.cache_resource
 def load_models():
-    return {
-        "DistilBERT": pipeline(
-            "sentiment-analysis",
-            model="distilbert-base-uncased-finetuned-sst-2-english"
-        ),
 
-        "RoBERTa": pipeline(
-            "sentiment-analysis",
-            model="cardiffnlp/twitter-roberta-base-sentiment-latest"
-        ),
+    models = {
+        "DistilBERT":
+            pipeline(
+                "sentiment-analysis",
+                model="distilbert-base-uncased-finetuned-sst-2-english"
+            ),
 
-        "BERT Multilingual": pipeline(
-            "sentiment-analysis",
-            model="nlptown/bert-base-multilingual-uncased-sentiment"
-        ),
+        "RoBERTa":
+            pipeline(
+                "sentiment-analysis",
+                model="cardiffnlp/twitter-roberta-base-sentiment-latest"
+            ),
 
-        # Text-generation model (prompted for sentiment)
-        "Mistral 7B": pipeline(
-            "text-generation",
-            model="mistralai/Mistral-7B-Instruct-v0.2"
-        )
+        "SieBERT":
+            pipeline(
+                "sentiment-analysis",
+                model="siebert/sentiment-roberta-large-english"
+            ),
+
+        "BERT Multilingual":
+            pipeline(
+                "sentiment-analysis",
+                model="nlptown/bert-base-multilingual-uncased-sentiment"
+            )
     }
+
+    return models
+
 
 models = load_models()
 
 review = st.text_area(
-    "Enter Customer Review",
+    "Enter Review",
+    placeholder="Example: The product quality is amazing!",
     height=180
 )
 
-selected = st.multiselect(
-    "Choose Models",
+selected_models = st.multiselect(
+    "Select Models",
     list(models.keys()),
-    default=["DistilBERT", "RoBERTa"]
+    default=list(models.keys())
 )
 
-if st.button("Analyze"):
+if st.button("Analyze Sentiment"):
 
     if review.strip() == "":
         st.warning("Please enter a review.")
         st.stop()
 
-    for model_name in selected:
+    for model_name in selected_models:
 
         st.subheader(model_name)
 
-        if model_name == "Mistral 7B":
-
-            prompt = f"""
-Analyze the sentiment of the following review.
-
-Return:
-Sentiment:
-Confidence:
-Explanation:
-
-Review:
-{review}
-"""
-
-            output = models[model_name](
-                prompt,
-                max_new_tokens=120,
-                do_sample=False
-            )
-
-            st.write(output[0]["generated_text"])
-
-        else:
+        try:
 
             result = models[model_name](review)
 
-            st.success(f"Sentiment : {result[0]['label']}")
-            st.info(f"Confidence : {result[0]['score']:.4f}")
+            label = result[0]["label"]
+            score = result[0]["score"]
 
-st.divider()
-st.caption("Powered by Hugging Face Transformers")
+            st.success(f"Sentiment: {label}")
+            st.info(f"Confidence: {score:.2%}")
+
+        except Exception as e:
+
+            st.error(f"Error: {e}")
